@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KHO THÀNH PHẨM - GHI NHỚ THÔNG TIN</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        
+        /* ẨN NÚT TĂNG GIẢM INPUT NUMBER */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        .table-container { max-height: 550px; overflow: auto; border: 1px solid #e2e8f0; }
+        thead th { position: sticky; top: 0; z-index: 10; background-color: #1e293b; font-size: 11px; padding: 8px 4px !important; color: white; }
+        td { padding: 4px 6px !important; font-size: 13px; white-space: nowrap; border-right: 1px solid #f1f5f9; }
+        tr.selected { background-color: #eff6ff !important; border-left: 4px solid #3b82f6; }
+        
+        input { font-size: 13px !important; padding: 5px 8px !important; border: 1px solid #cbd5e1 !important; border-radius: 4px !important; outline: none; width: 100%; }
+        input:focus { border-color: #3b82f6 !important; ring: 1px #3b82f6; }
+        
+        .label-min { font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 2px; text-transform: uppercase; }
+    </style>
+</head>
+<body class="p-2 md:p-4">
+
+    <div class="bg-slate-800 text-white flex justify-between items-center py-2 px-4 rounded shadow-md mb-3">
+        <h1 class="text-lg font-bold">QUẢN LÝ KHO THÀNH PHẨM</h1>
+        <div id="fileNameDisplay" class="text-xs opacity-60">Chờ mở file Excel...</div>
+    </div>
+
+    <div class="space-y-3">
+        <div class="flex flex-wrap items-center gap-2 bg-white p-2 rounded shadow-sm border">
+            <input type="file" id="fileInput" accept=".xlsx, .xls" class="hidden">
+            <button onclick="document.getElementById('fileInput').click()" class="bg-indigo-600 text-white px-4 py-1.5 rounded text-xs font-bold hover:bg-indigo-700">📂 MỞ FILE</button>
+            <button onclick="exportExcel()" class="bg-slate-700 text-white px-4 py-1.5 rounded text-xs font-bold hover:bg-slate-800">📥 XUẤT EXCEL</button>
+            <button onclick="clearSavedData()" class="ml-auto text-red-500 text-[10px] hover:underline font-bold">XÓA GỢI Ý ĐÃ LƯU</button>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow-sm border border-slate-200">
+            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10 gap-3" id="inputForm">
+                <div><p class="label-min">Ngày</p><input type="text" id="Date"></div>
+                <div><p class="label-min">Mã Phiếu</p><input type="text" id="Mã_phiếu"></div>
+                <div><p class="label-min">Hình Thể</p><input type="text" id="Hình_thể" oninput="autoCalculate()"></div>
+                <div><p class="label-min">PO</p><input type="text" id="PO" oninput="autoCalculate()"></div>
+                <div><p class="label-min">Mã SP</p><input type="text" id="Mã_sản_phẩm" readonly class="bg-slate-50 font-bold text-blue-600 border-none"></div>
+                
+                <div class="md:col-span-2"><p class="label-min text-blue-600">Tên Sản Phẩm</p>
+                    <input type="text" id="Tên_sản_phẩm" list="list_ten_sp" placeholder="Nhập tên...">
+                    <datalist id="list_ten_sp"></datalist>
+                </div>
+                <div class="md:col-span-2"><p class="label-min text-blue-600">Diễn Giải</p>
+                    <input type="text" id="Diễn_giải" list="list_dien_giai" placeholder="Ghi chú...">
+                    <datalist id="list_dien_giai"></datalist>
+                </div>
+                <div><p class="label-min text-blue-600">Người Giao</p>
+                    <input type="text" id="Người_giao" list="list_nguoi_giao" placeholder="Tên người...">
+                    <datalist id="list_nguoi_giao"></datalist>
+                </div>
+
+                <div><p class="label-min">ĐVT</p><input type="text" id="ĐVT" class="text-center"></div>
+                <div><p class="label-min">Số Kiện</p><input type="number" id="Số_kiện" class="text-center font-bold" oninput="autoCalculate()"></div>
+                <div><p class="label-min">C/K</p><input type="number" id="Chiếc_Kiện" class="text-center font-bold" oninput="autoCalculate()"></div>
+                <div><p class="label-min">Nhập</p><input type="number" id="Nhập_kho" readonly class="bg-emerald-50 text-center font-bold text-emerald-700"></div>
+                <div><p class="label-min">Xuất</p><input type="number" id="Xuất_kho" class="text-center" oninput="autoCalculate()"></div>
+            </div>
+
+            <div class="mt-4 flex gap-2">
+                <button onclick="addRow()" class="bg-emerald-600 text-white px-6 py-2 rounded text-xs font-bold hover:bg-emerald-700 shadow-sm">➕ THÊM DÒNG</button>
+                <button onclick="updateRow()" class="bg-amber-500 text-white px-6 py-2 rounded text-xs font-bold hover:bg-amber-600 shadow-sm">📝 CẬP NHẬT</button>
+                <button onclick="deleteRow()" class="bg-red-500 text-white px-6 py-2 rounded text-xs font-bold hover:bg-red-600 shadow-sm">🗑️ XÓA</button>
+                <button onclick="clearForm()" class="bg-slate-400 text-white px-6 py-2 rounded text-xs font-bold hover:bg-slate-500 shadow-sm">🔄 LÀM MỚI</button>
+                <input type="text" id="searchInput" oninput="filterTable()" placeholder="🔍 Tìm kiếm nhanh..." class="ml-auto w-64 p-2 border border-slate-300 rounded text-xs">
+            </div>
+        </div>
+
+        <div class="bg-white rounded border border-slate-200 overflow-hidden shadow-sm">
+            <div class="table-container">
+                <table class="w-full text-left border-collapse" id="mainTable">
+                    <thead>
+                        <tr>
+                            <th>Ngày</th><th>Mã Phiếu</th><th>Mã SP</th><th>H.Thể</th><th>PO</th><th>Tên Sản Phẩm</th><th>Diễn Giải</th><th>Người Giao</th><th class="text-center">ĐVT</th><th class="text-center">S.Kiện</th><th class="text-center">C/K</th><th class="text-center text-yellow-400">Nhập</th><th class="text-center text-orange-400">Xuất</th><th class="text-center">Check</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="flex gap-4 text-xs font-bold">
+            <div class="bg-slate-800 text-white px-4 py-2 rounded">TỔNG KIỆN: <span id="sumKien" class="text-blue-400">0</span></div>
+            <div class="bg-slate-800 text-white px-4 py-2 rounded">TỔNG NHẬP: <span id="sumNhap" class="text-emerald-400">0</span></div>
+            <div class="bg-slate-800 text-white px-4 py-2 rounded">TỔNG XUẤT: <span id="sumXuat" class="text-red-400">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        let fullData = [];
+        let selectedRowIndex = -1;
+        const columns = ["Date", "Mã phiếu", "Mã sản phẩm", "Hình thể", "PO", "Tên sản phẩm", "Diễn giải", "Người giao", "ĐVT", "Số kiện", "Chiếc/Kiện", "Nhập kho", "Xuất kho", "Check"];
+        const fieldMap = { "Date": "Date", "Mã phiếu": "Mã_phiếu", "Mã sản phẩm": "Mã_sản_phẩm", "Hình thể": "Hình_thể", "PO": "PO", "Tên sản phẩm": "Tên_sản_phẩm", "Diễn giải": "Diễn_giải", "Người giao": "Người_giao", "ĐVT": "ĐVT", "Số kiện": "Số_kiện", "Chiếc/Kiện": "Chiếc_Kiện", "Nhập kho": "Nhập_kho", "Xuất kho": "Xuất_kho" };
+
+        // Khởi tạo
+        document.getElementById('Date').value = new Date().toLocaleDateString('vi-VN');
+        loadSavedSuggestions();
+
+        // XỬ LÝ LƯU THÔNG TIN (LOCAL STORAGE)
+        function saveToHistory(id, value) {
+            if (!value) return;
+            let history = JSON.parse(localStorage.getItem(id)) || [];
+            if (!history.includes(value)) {
+                history.push(value);
+                localStorage.setItem(id, JSON.stringify(history));
+                loadSavedSuggestions();
+            }
+        }
+
+        function loadSavedSuggestions() {
+            const configs = [
+                { id: 'list_ten_sp', storageKey: 'Tên_sản_phẩm' },
+                { id: 'list_dien_giai', storageKey: 'Diễn_giải' },
+                { id: 'list_nguoi_giao', storageKey: 'Người_giao' }
+            ];
+            configs.forEach(cfg => {
+                const datalist = document.getElementById(cfg.id);
+                const history = JSON.parse(localStorage.getItem(cfg.storageKey)) || [];
+                datalist.innerHTML = history.map(item => `<option value="${item}">`).join('');
+            });
+        }
+
+        function clearSavedData() {
+            if(confirm("Xóa toàn bộ gợi ý đã lưu?")) {
+                ['Tên_sản_phẩm', 'Diễn_giải', 'Người_giao'].forEach(k => localStorage.removeItem(k));
+                loadSavedSuggestions();
+            }
+        }
+
+        // CÁC HÀM CƠ BẢN
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                fullData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval: ""});
+                renderTable(fullData);
+            };
+            reader.readAsArrayBuffer(e.target.files[0]);
+            document.getElementById('fileNameDisplay').innerText = e.target.files[0].name;
+        });
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            let sKien = 0, sNhap = 0, sXuat = 0;
+            data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 cursor-pointer";
+                tr.onclick = () => selectRow(index, tr);
+                columns.forEach(col => {
+                    const td = document.createElement('td');
+                    let val = row[col] || "";
+                    if (col === "Check") {
+                        td.className = "text-center font-bold " + (val === "T" ? "text-emerald-600" : "text-red-500");
+                        td.innerText = val === "T" ? "OK" : "!!";
+                    } else {
+                        td.innerText = val;
+                        if(["ĐVT", "Số kiện", "Chiếc/Kiện", "Nhập kho", "Xuất kho"].includes(col)) td.className += " text-center";
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+                sKien += Number(row["Số kiện"]) || 0;
+                sNhap += Number(row["Nhập kho"]) || 0;
+                sXuat += Number(row["Xuất kho"]) || 0;
+            });
+            document.getElementById('sumKien').innerText = sKien.toLocaleString();
+            document.getElementById('sumNhap').innerText = sNhap.toLocaleString();
+            document.getElementById('sumXuat').innerText = sXuat.toLocaleString();
+        }
+
+        function autoCalculate() {
+            const kien = Number(document.getElementById('Số_kiện').value) || 0;
+            const chiec = Number(document.getElementById('Chiếc_Kiện').value) || 0;
+            const ht = document.getElementById('Hình_thể').value;
+            const po = document.getElementById('PO').value;
+            document.getElementById('Nhập_kho').value = kien * chiec;
+            const sep = (po && isNaN(po[0])) ? "/" : "-";
+            document.getElementById('Mã_sản_phẩm').value = (ht || po) ? `${ht}${sep}${po}` : "";
+        }
+
+        function getFormData() {
+            const row = {};
+            columns.forEach(col => {
+                if(col === "Check") {
+                    const nhap = Number(document.getElementById('Nhập_kho').value);
+                    const xuat = Number(document.getElementById('Xuất_kho').value);
+                    row[col] = (nhap === xuat && nhap > 0) ? "T" : "F";
+                } else {
+                    row[col] = document.getElementById(fieldMap[col]).value;
+                }
+            });
+            return row;
+        }
+
+        function addRow() {
+            const data = getFormData();
+            // Lưu lịch sử gợi ý
+            saveToHistory('Tên_sản_phẩm', data['Tên sản phẩm']);
+            saveToHistory('Diễn_giải', data['Diễn giải']);
+            saveToHistory('Người_giao', data['Người giao']);
+            
+            fullData.push(data);
+            renderTable(fullData);
+            clearForm();
+        }
+
+        function updateRow() {
+            if(selectedRowIndex === -1) return alert("Chọn dòng!");
+            fullData[selectedRowIndex] = getFormData();
+            renderTable(fullData);
+        }
+
+        function deleteRow() {
+            if(selectedRowIndex === -1 || !confirm("Xóa dòng này?")) return;
+            fullData.splice(selectedRowIndex, 1);
+            selectedRowIndex = -1;
+            renderTable(fullData);
+            clearForm();
+        }
+
+        function selectRow(index, element) {
+            selectedRowIndex = index;
+            document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+            element.classList.add('selected');
+            const rowData = fullData[index];
+            Object.keys(fieldMap).forEach(col => {
+                document.getElementById(fieldMap[col]).value = rowData[col] || "";
+            });
+        }
+
+        function clearForm() {
+            Object.values(fieldMap).forEach(id => { if(id !== "Date") document.getElementById(id).value = ""; });
+            selectedRowIndex = -1;
+            document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        }
+
+        function filterTable() {
+            const kw = document.getElementById('searchInput').value.toLowerCase();
+            renderTable(fullData.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(kw))));
+        }
+
+        function exportExcel() {
+            const ws = XLSX.utils.json_to_sheet(fullData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Kho");
+            XLSX.writeFile(wb, `Kho_Update_${new Date().getTime()}.xlsx`);
+        }
+    </script>
+</body>
+</html>
